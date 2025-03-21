@@ -1,9 +1,12 @@
 package org.sahariardev.handler;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.*;
+import io.netty.util.CharsetUtil;
 
 public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
 
@@ -15,7 +18,18 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse fullHttpResponse) throws Exception {
-        clienChannel.writeAndFlush(fullHttpResponse.retainedDuplicate());
+        FullHttpResponse response = fullHttpResponse.retainedDuplicate();
+
+        ByteBuf buf = response.content().retain();
+        String content = buf.toString(CharsetUtil.UTF_8);
+        String modifiedContentStr = content.replaceAll("action\\s*=\\s*\"([^\"]*)\"", "action=\"/client$1\"");
+        ByteBuf modifiedBuffer = Unpooled.copiedBuffer(modifiedContentStr, CharsetUtil.UTF_8);
+
+        FullHttpResponse modifiedResponse = new DefaultFullHttpResponse(response.protocolVersion(), response.status(), modifiedBuffer);
+        modifiedResponse.headers().setAll(response.headers());
+        modifiedResponse.headers().set(HttpHeaderNames.CONTENT_LENGTH, modifiedBuffer.readableBytes());
+
+        clienChannel.writeAndFlush(modifiedResponse);
         ctx.close();
     }
 

@@ -21,6 +21,7 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
         final Channel clientChannel = ctx.channel();
 
         FullHttpRequest copiedRequest = requestFromBrowser.retainedDuplicate();
+        copiedRequest.setUri(copiedRequest.uri().replace("/client", ""));
 
         Bootstrap b = new Bootstrap();
         b.group(clientChannel.eventLoop())
@@ -30,7 +31,7 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
                     protected void initChannel(Channel ch) throws Exception {
                         ChannelPipeline p = ch.pipeline();
                         p.addLast(new HttpClientCodec());
-                        p.addLast(new HttpObjectAggregator(512 * 1024));
+                        p.addLast(new HttpObjectAggregator(10 * 1024 * 1024));
                         p.addLast(new ProxyBackendHandler(clientChannel));
                     }
                 });
