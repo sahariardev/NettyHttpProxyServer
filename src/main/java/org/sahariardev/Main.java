@@ -1,11 +1,11 @@
 package org.sahariardev;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+import javax.net.ssl.SSLException;
+
 public class Main {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, SSLException {
 
         HttpProxyServer server = new HttpProxyServer();
-        server.start(8080, "localhost", 3000);
+        server.start(4444, "localhost", 4443);
     }
 }
