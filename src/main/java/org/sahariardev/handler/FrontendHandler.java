@@ -4,7 +4,10 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
+import org.sahariardev.Deployment;
+import org.sahariardev.Store;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,19 +16,15 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     private final String serverHost;
 
-    private final int serverPort;
-
-    public FrontendHandler(String serverHost, int serverPort) {
+    public FrontendHandler(String serverHost) {
         this.serverHost = serverHost;
-        this.serverPort = serverPort;
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest requestFromBrowser) throws Exception {
         final Channel clientChannel = ctx.channel();
 
-        FullHttpRequest copiedRequest = requestFromBrowser.retainedDuplicate();
-        String uri = copiedRequest.uri();
+        String uri = requestFromBrowser.uri();
         Pattern pattern = Pattern.compile("^/([^/]+)(/.*)?");
         Matcher matcher = pattern.matcher(uri);
 
@@ -35,21 +34,38 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
             hostName = matcher.group(1);
             uri = matcher.group(2);
 
-            if (Objects.isNull(uri) || uri.length() == 0) {
+            if (Objects.isNull(uri) || uri.isEmpty()) {
                 uri = "/";
             }
         }
 
         final String host = hostName;
-        copiedRequest.setUri(uri);
 
-        if (!host.equals("test")) {
+        List<Deployment> deployments = Store.getDeployments();
+
+        Deployment deployment = deployments.stream()
+                .filter(deployment1 -> deployment1.getName().equals(host))
+                .findFirst().orElse(null);
+
+        if (Objects.isNull(deployment)) {
             clientChannel
                     .writeAndFlush(new DefaultHttpResponse(HttpVersion.HTTP_1_1,
                             HttpResponseStatus.FORBIDDEN))
                     .addListener(ChannelFutureListener.CLOSE);
             return;
         }
+
+        HttpHeaders headers = requestFromBrowser.headers();
+
+        if (headers.contains(HttpHeaderNames.HOST)) {
+            String updatedHostName = "localhost:" + deployment.getPort();
+
+            headers.set(HttpHeaderNames.HOST, updatedHostName);
+        }
+
+        FullHttpRequest modifiedRequest = new DefaultFullHttpRequest(requestFromBrowser.protocolVersion(), requestFromBrowser.method(), uri);
+        modifiedRequest.headers().setAll(headers);
+        modifiedRequest.headers().set(HttpHeaderNames.CONTENT_LENGTH, requestFromBrowser.content().readableBytes());
 
         Bootstrap b = new Bootstrap();
         b.group(clientChannel.eventLoop())
@@ -63,10 +79,11 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
                         p.addLast(new ProxyBackendHandler(clientChannel, host));
                     }
                 });
-        b.connect(serverHost, serverPort).addListener((ChannelFutureListener) future -> {
+
+        b.connect(serverHost, deployment.port).addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
                 Channel targetChannel = future.channel();
-                targetChannel.writeAndFlush(copiedRequest);
+                targetChannel.writeAndFlush(modifiedRequest);
             } else {
                 clientChannel
                         .writeAndFlush(new DefaultHttpResponse(HttpVersion.HTTP_1_1,

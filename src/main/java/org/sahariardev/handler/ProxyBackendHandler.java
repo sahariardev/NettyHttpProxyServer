@@ -27,7 +27,6 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msgFromServer) throws Exception {
-
         FullHttpResponse response = msgFromServer.retainedDuplicate();
         ByteBuf buf = response.content().retain();
         String content = buf.toString(CharsetUtil.UTF_8);
@@ -48,7 +47,6 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
         }
 
         if (headers.get(HttpHeaderNames.LOCATION) == null) {
-            System.out.println("Status: " + msgFromServer.status());
             for (Map.Entry<String, String> header : msgFromServer.headers()) {
                 System.out.println(header.getKey() + ": " + header.getValue());
             }

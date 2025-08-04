@@ -20,7 +20,7 @@ import java.util.Arrays;
 
 public class HttpProxyServer {
 
-    public void start(int port, String serverHost, int serverPort) throws InterruptedException, SSLException {
+    public void start(int port, String serverHost) throws InterruptedException, SSLException {
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -54,7 +54,7 @@ public class HttpProxyServer {
 
                             pipeline.addLast(new HttpServerCodec());
                             pipeline.addLast(new HttpObjectAggregator(512 * 1024));
-                            pipeline.addLast(new FrontendHandler(serverHost, serverPort));
+                            pipeline.addLast(new FrontendHandler(serverHost));
                         }
                     });
 
