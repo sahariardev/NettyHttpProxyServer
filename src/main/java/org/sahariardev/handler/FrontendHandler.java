@@ -1,9 +1,11 @@
 package org.sahariardev.handler;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
+import io.netty.util.CharsetUtil;
 import org.sahariardev.Deployment;
 import org.sahariardev.Store;
 
@@ -63,9 +65,10 @@ public class FrontendHandler extends SimpleChannelInboundHandler<FullHttpRequest
             headers.set(HttpHeaderNames.HOST, updatedHostName);
         }
 
-        FullHttpRequest modifiedRequest = new DefaultFullHttpRequest(requestFromBrowser.protocolVersion(), requestFromBrowser.method(), uri);
+        ByteBuf content = requestFromBrowser.content().copy();
+        FullHttpRequest modifiedRequest = new DefaultFullHttpRequest(requestFromBrowser.protocolVersion(), requestFromBrowser.method(), uri, content);
         modifiedRequest.headers().setAll(headers);
-        modifiedRequest.headers().set(HttpHeaderNames.CONTENT_LENGTH, requestFromBrowser.content().readableBytes());
+        modifiedRequest.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
 
         Bootstrap b = new Bootstrap();
         b.group(clientChannel.eventLoop())

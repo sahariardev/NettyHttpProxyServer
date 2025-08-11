@@ -31,10 +31,9 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
         ByteBuf buf = response.content().retain();
         String content = buf.toString(CharsetUtil.UTF_8);
 
-        String modifiedContentStr = content.replaceAll(
-                "(?i)(href|src|action)\\s*=\\s*\"(/.*?)\"",
-                "$1=\"" + hostName + "$2\""
-        );
+        String contentType = msgFromServer.headers().get(HttpHeaderNames.CONTENT_TYPE);
+
+        String modifiedContentStr = getContent(content, contentType);
 
         ByteBuf modifiedBuffer = Unpooled.copiedBuffer(modifiedContentStr, CharsetUtil.UTF_8);
 
@@ -53,11 +52,40 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
         }
 
         FullHttpResponse modifiedResponse = new DefaultFullHttpResponse(response.protocolVersion(), response.status(), modifiedBuffer);
-        modifiedResponse.headers().setAll(headers);
+
+        modifiedResponse.headers().clear();
+
+        for (Map.Entry<String, String> header : headers.entries()) {
+            modifiedResponse.headers().add(header.getKey(), header.getValue());
+        }
+
         modifiedResponse.headers().set(HttpHeaderNames.CONTENT_LENGTH, modifiedBuffer.readableBytes());
 
         clientChannel.writeAndFlush(modifiedResponse.retainedDuplicate());
         ctx.close();
+    }
+
+    private String getContent(String content, String contentType) {
+        String modifiedContentStr = content;
+        if (contentType != null && contentType.startsWith("text/html")) {
+            String ajaxPrefilter = "<script>\n" +
+                    "            $.ajaxPrefilter(function (options, originalOptions, jqXHR) {\n" +
+                    "                const prefix = '/" + hostName + "';\n" +
+                    "                if (!/^https?:\\/\\//i.test(options.url)) {\n" +
+                    "                    options.url = prefix + options.url;\n" +
+                    "                }\n" +
+                    "            });\n" +
+                    "        </script>\n";
+
+            modifiedContentStr = content.replaceAll(
+                    "(?i)(href|src|action|window.location.href|loginUrl)\\s*=\\s*(['\"])(/.*?)\\2",
+                    "$1=$2/" + hostName + "$3$2"
+            );
+
+            modifiedContentStr = modifiedContentStr.replace("</body>", ajaxPrefilter + "</body>");
+
+        }
+        return modifiedContentStr;
     }
 
     @Override
