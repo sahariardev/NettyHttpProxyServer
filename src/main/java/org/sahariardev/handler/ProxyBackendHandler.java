@@ -13,6 +13,7 @@ import io.netty.util.CharsetUtil;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 
 public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
@@ -39,6 +40,15 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
 
         HttpHeaders headers = response.headers();
 
+        if (headers.contains(HttpHeaderNames.SET_COOKIE)) {
+            List<String> cookies = headers.getAll(HttpHeaderNames.SET_COOKIE);
+            headers.remove(HttpHeaderNames.SET_COOKIE);
+
+            for (String cookieStr : cookies) {
+                headers.add(HttpHeaderNames.SET_COOKIE, cookieStr.replaceAll("(?<=Path=)[^;]+", "/"));
+            }
+        }
+
         if (headers.contains(HttpHeaderNames.LOCATION)) {
             String updatedLocation = getRelativeUrl(headers.get(HttpHeaderNames.LOCATION));
 
@@ -51,7 +61,8 @@ public class ProxyBackendHandler extends SimpleChannelInboundHandler<FullHttpRes
             }
         }
 
-        FullHttpResponse modifiedResponse = new DefaultFullHttpResponse(response.protocolVersion(), response.status(), modifiedBuffer);
+        FullHttpResponse modifiedResponse = new DefaultFullHttpResponse(response.protocolVersion(), response.status(),
+                contentType != null && contentType.startsWith("text/html") ? modifiedBuffer : response.content());
 
         modifiedResponse.headers().clear();
 

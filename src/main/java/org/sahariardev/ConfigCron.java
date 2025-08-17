@@ -22,7 +22,7 @@ public class ConfigCron {
     public void run() {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         Gson gson = new Gson();
-        String connectionUrl = "http://localhost:3000/api/deployments";
+        String connectionUrl = "http://localhost:7002/api/deployments";
 
         Runnable task = () -> {
             System.out.println("Running Cron Task at " + LocalDateTime.now());

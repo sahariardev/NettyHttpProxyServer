@@ -8,6 +8,6 @@ public class Main {
         cron.run();
 
         HttpProxyServer server = new HttpProxyServer();
-        server.start(4444, "localhost");
+        server.start(7001, "localhost");
     }
 }
